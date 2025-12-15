@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8" />
+  <title>Apotek – Temperatur Dashboard</title>
+
+  
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+
+ 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      background: #f5f7fb;
+    }
+    .navbar-brand {
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+    .card {
+      border-radius: 18px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+    }
+    .temp-value {
+      font-size: 2rem;
+      font-weight: 600;
+    }
+    .sensor-pill {
+      font-size: 0.8rem;
+      padding: 0.1rem 0.5rem;
+      border-radius: 999px;
+      background: #eef2ff;
+      color: #4f46e5;
+    }
+    .badge-ok {
+      background-color: #d1fae5;
+      color: #065f46;
+    }
+    .badge-alarm {
+      background-color: #fee2e2;
+      color: #b91c1c;
+    }
+    .stat-number {
+      font-size: 1.6rem;
+      font-weight: 600;
+    }
+    footer {
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  
+  <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom">
+    <div class="container-fluid px-4">
+      <a class="navbar-brand" href="#">Apotek Temperaturmonitorering</a>
+      <div class="d-flex flex-column flex-sm-row align-items-sm-center gap-2">
+        <span class="text-muted small" id="last-refresh">Sidst opdateret: –</span>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container py-4">
+
+    
+    <div class="row g-3 mb-3">
+      <div class="col-12 col-md-4">
+        <div class="card h-100">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="text-muted small">Antal sensorer</span>
+              <span class="badge bg-light text-muted small">System</span>
+            </div>
+            <div class="stat-number" id="stat-sensors">0</div>
+            <div class="text-muted small">
+              Antal enheder der har sendt data til systemet.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="card h-100">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="text-muted small">Aktive alarmer</span>
+              <span class="badge bg-light text-muted small">Status</span>
+            </div>
+            <div class="stat-number" id="stat-alarms">0</div>
+            <div class="text-muted small">
+              Antal sensorer der lige nu er udenfor deres temperatur-interval.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="card h-100">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="text-muted small">Seneste måling</span>
+              <span class="badge bg-light text-muted small">Tidsstempel</span>
+            </div>
+            <div class="stat-number" id="stat-last-timestamp">–</div>
+            <div class="text-muted small">
+              Tidspunkt for den nyeste registrerede temperaturmåling.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    
+    <div class="row g-3" id="latest-cards">
+      
+    </div>
+
+    
+    <div class="row g-3 mt-4">
+      <div class="col-12 col-lg-4">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title mb-3">Vælg sensor</h5>
+            <p class="text-muted small">
+              Vælg hvilken sensor du vil se historiske målinger for. Graf og tabel til højre opdateres automatisk.
+            </p>
+            <select id="sensor-select" class="form-select mb-3" onchange="reloadSelectedHistory()">
+              
+            </select>
+            <button class="btn btn-primary w-100 mb-3" onclick="reloadSelectedHistory()">
+              Opdater graf & tabel
+            </button>
+
+            <hr />
+            <p class="text-muted small mb-1">Info om valgt sensor:</p>
+            <div id="selected-sensor-info" class="small mb-3">
+              Ingen sensor valgt endnu.
+            </div>
+
+            <p class="text-muted small mb-1">Sammenfatning for historik:</p>
+            <ul class="small mb-0" id="history-summary">
+              <li>Min: –</li>
+              <li>Max: –</li>
+              <li>Gennemsnit: –</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-lg-8">
+        <div class="card h-100">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h5 class="card-title mb-0">Temperaturhistorik</h5>
+              <span class="badge bg-light text-muted small" id="chart-label">
+                Ingen data
+              </span>
+            </div>
+            <canvas id="historyChart" style="max-height: 280px;"></canvas>
+
+            <hr class="my-3">
+
+            <h6 class="mb-2">Seneste målinger (valgt sensor)</h6>
+            <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+              <table class="table table-sm align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th scope="col">Tidspunkt</th>
+                    <th scope="col">Temperatur</th>
+                    <th scope="col">Alarm</th>
+                  </tr>
+                </thead>
+                <tbody id="history-table-body">
+                  
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    
+    <div class="row g-3 mt-4">
+      <div class="col-12 col-lg-6">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title mb-3">Systembeskrivelse</h5>
+            <p class="text-muted small">
+              Denne hjemmeside viser temperaturmålinger fra ESP32-enheder placeret i apotekets lager og køleskab.
+              Data modtages via et Flask-API, valideres med regulære udtryk (regex) og gemmes i en PostgreSQL-database.
+              Dashboardet visualiserer både seneste målinger og historiske data.
+            </p>
+            <p class="text-muted small">
+              Formålet er at give et hurtigt overblik over, om medicin opbevares inden for de korrekte temperaturgrænser,
+              samt at give mulighed for efterfølgende dokumentation af temperaturforløbet.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-lg-6">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title mb-3">Grænseværdier og farvekoder</h5>
+            <ul class="small text-muted mb-3">
+              <li><strong>Lager:</strong> 15–25°C (målområde)</li>
+              <li><strong>Køleskab:</strong> 2–8°C (målområde)</li>
+            </ul>
+            <p class="small text-muted mb-1">Farvekoder:</p>
+            <ul class="small text-muted">
+              <li>
+                <span class="badge badge-ok">OK</span> – seneste måling er inden for den tilladte temperaturgrænse.
+              </li>
+              <li>
+                <span class="badge badge-alarm">ALARM</span> – seneste måling ligger uden for temperaturgrænsen.
+              </li>
+            </ul>
+            <p class="small text-muted mb-0">
+              Disse regler kan beskrives i rapporten under jeres afsnit om krav, datavalidering og alarmer.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="mt-4 mb-2 text-center">
+      
+    </footer>
+  </div>
+
+  <script>
+    let historyChart = null;
+    let latestCache = []; 
+    let fullHistoryCache = {}; 
+
+    async function loadLatest() {
+      try {
+        const res = await fetch("/api/measurements/latest");
+        const data = await res.json();
+        latestCache = data;
+
+        renderLatestCards(data);
+        fillSensorDropdown(data);
+        updateSystemStats(data);
+
+        const now = new Date();
+        document.getElementById("last-refresh").innerText =
+          "Sidst opdateret: " + now.toLocaleTimeString("da-DK");
+      } catch (err) {
+        console.error("Fejl ved hentning af seneste målinger", err);
+      }
+    }
+
+    function updateSystemStats(data) {
+      const statSensors = document.getElementById("stat-sensors");
+      const statAlarms = document.getElementById("stat-alarms");
+      const statLastTs = document.getElementById("stat-last-timestamp");
+
+      if (!data || data.length === 0) {
+        statSensors.innerText = "0";
+        statAlarms.innerText = "0";
+        statLastTs.innerText = "–";
+        return;
+      }
+
+      statSensors.innerText = data.length.toString();
+      const alarms = data.filter(d => d.alarm_flag).length;
+      statAlarms.innerText = alarms.toString();
+
+      const timestamps = data
+        .map(d => new Date(d.timestamp))
+        .sort((a, b) => b - a);
+      const newest = timestamps[0];
+      statLastTs.innerText = newest.toLocaleString("da-DK");
+    }
+
+    function renderLatestCards(data) {
+      const container = document.getElementById("latest-cards");
+      if (!data || data.length === 0) {
+        container.innerHTML = `
+          <div class="col-12">
+            <div class="alert alert-warning mb-0">
+              Ingen målinger fundet endnu. Prøv at sende data til API'et.
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = data
+        .map((d) => {
+          const alarmClass = d.alarm_flag ? "badge-alarm" : "badge-ok";
+          const alarmText = d.alarm_flag ? "ALARM" : "OK";
+          const timestamp = new Date(d.timestamp).toLocaleString("da-DK");
+
+          return `
+          <div class="col-12 col-md-6 col-xl-4">
+            <div class="card">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                  <div>
+                    <div class="sensor-pill mb-1">${d.sensor_id}</div>
+                    <div class="text-muted small">${d.location}</div>
+                  </div>
+                  <span class="badge ${alarmClass}">${alarmText}</span>
+                </div>
+                <div class="temp-value mb-1">${d.temperatur}°C</div>
+                <div class="text-muted small">
+                  Sidste måling: ${timestamp}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        })
+        .join("");
+    }
+
+    function fillSensorDropdown(data) {
+      const select = document.getElementById("sensor-select");
+
+      if (!data || data.length === 0) {
+        select.innerHTML = `<option value="">Ingen sensorer</option>`;
+        updateSelectedSensorInfo();
+        renderChart("", [], []);
+        renderHistoryTable([]);
+        return;
+      }
+
+      select.innerHTML = data
+        .map((d, idx) => {
+          const selected = idx === 0 ? "selected" : "";
+          return `<option value="${d.sensor_id}" ${selected}>
+                    ${d.sensor_id} (${d.location})
+                  </option>`;
+        })
+        .join("");
+
+      updateSelectedSensorInfo();
+
+      const firstSensorId = data[0].sensor_id;
+      loadHistory(firstSensorId);
+    }
+
+    function updateSelectedSensorInfo() {
+      const select = document.getElementById("sensor-select");
+      const infoDiv = document.getElementById("selected-sensor-info");
+      const sensorId = select.value;
+      if (!sensorId) {
+        infoDiv.innerText = "Ingen sensor valgt.";
+        return;
+      }
+
+      const match = latestCache.find((d) => d.sensor_id === sensorId);
+      if (!match) {
+        infoDiv.innerText = "Ingen info tilgængelig for denne sensor.";
+        return;
+      }
+
+      const ts = new Date(match.timestamp).toLocaleString("da-DK");
+      infoDiv.innerHTML = `
+        <strong>${match.sensor_id}</strong><br/>
+        Placering: ${match.location}<br/>
+        Seneste temperatur: ${match.temperatur}°C<br/>
+        Status: ${match.alarm_flag ? "<span style='color:#b91c1c;'>ALARM</span>" : "<span style='color:#065f46;'>OK</span>"}<br/>
+        Sidst opdateret: ${ts}
+      `;
+    }
+
+    async function loadHistory(sensorId) {
+      if (!sensorId) return;
+
+      try {
+        const res = await fetch(`/api/measurements/history/${sensorId}`);
+        const data = await res.json();
+        fullHistoryCache[sensorId] = data;
+
+        const labels = data.map((d) =>
+          new Date(d.timestamp).toLocaleTimeString("da-DK")
+        );
+        const temps = data.map((d) => d.temperatur);
+
+        renderChart(sensorId, labels, temps);
+        renderHistoryTable(data);
+        updateHistorySummary(temps);
+      } catch (err) {
+        console.error("Fejl ved hentning af historik", err);
+      }
+    }
+
+    function renderChart(sensorId, labels, temps) {
+      const ctx = document.getElementById("historyChart").getContext("2d");
+
+      if (historyChart) {
+        historyChart.destroy();
+      }
+
+      historyChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: sensorId ? `Temperatur (${sensorId})` : "Temperatur",
+              data: temps,
+              tension: 0.3,
+              pointRadius: 3
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              title: {
+                display: true,
+                text: "Temperatur (°C)",
+              },
+            },
+            x: {
+              title: {
+                display: true,
+                text: "Tidspunkt",
+              },
+            },
+          },
+        },
+      });
+
+      const chartLabel = document.getElementById("chart-label");
+      if (!sensorId) {
+        chartLabel.innerText = "Ingen sensor valgt";
+      } else if (labels.length === 0) {
+        chartLabel.innerText = `Ingen data for ${sensorId}`;
+      } else {
+        chartLabel.innerText = `Viser ${labels.length} målinger for ${sensorId}`;
+      }
+    }
+
+    function renderHistoryTable(data) {
+      const tbody = document.getElementById("history-table-body");
+      if (!data || data.length === 0) {
+        tbody.innerHTML = `
+          <tr><td colspan="3" class="text-muted small">Ingen målinger for valgt sensor endnu.</td></tr>
+        `;
+        return;
+      }
+
+      
+      const reversed = [...data].reverse();
+      tbody.innerHTML = reversed
+        .slice(0, 20) 
+        .map(d => {
+          const ts = new Date(d.timestamp).toLocaleString("da-DK");
+          const alarmText = d.alarm_flag ? "ALARM" : "OK";
+          const alarmClass = d.alarm_flag ? "text-danger" : "text-success";
+          return `
+            <tr>
+              <td class="small">${ts}</td>
+              <td class="small">${d.temperatur}°C</td>
+              <td class="small ${alarmClass}">${alarmText}</td>
+            </tr>
+          `;
+        })
+        .join("");
+    }
+
+    function updateHistorySummary(temps) {
+      const list = document.getElementById("history-summary");
+      if (!temps || temps.length === 0) {
+        list.innerHTML = `
+          <li>Min: –</li>
+          <li>Max: –</li>
+          <li>Gennemsnit: –</li>
+        `;
+        return;
+      }
+
+      const min = Math.min(...temps);
+      const max = Math.max(...temps);
+      const avg = temps.reduce((a, b) => a + b, 0) / temps.length;
+
+      list.innerHTML = `
+        <li>Min: ${min.toFixed(2)}°C</li>
+        <li>Max: ${max.toFixed(2)}°C</li>
+        <li>Gennemsnit: ${avg.toFixed(2)}°C</li>
+      `;
+    }
+
+    function reloadSelectedHistory() {
+      const select = document.getElementById("sensor-select");
+      const sensorId = select.value;
+      updateSelectedSensorInfo();
+      loadHistory(sensorId);
+    }
+
+    
+    setInterval(loadLatest, 10000); 
+
+    
+    loadLatest();
+  </script>
+</body>
+</html>
