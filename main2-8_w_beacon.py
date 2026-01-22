@@ -8,8 +8,8 @@ import espnow
 import time
 
 
-SSID = "Pakiphone"
-PASSWORD = "11223344"
+SSID = "SSID"
+PASSWORD = "PASSWORD"
 
 wlan = network.WLAN(network.STA_IF)
 wlan.active(True)
@@ -146,3 +146,4 @@ def main_loop(timer):
 
 
 Timer(0).init(period=30000, mode=Timer.PERIODIC, callback=main_loop)
+
