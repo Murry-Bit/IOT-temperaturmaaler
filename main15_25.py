@@ -28,7 +28,7 @@ def connect_wifi():
 connect_wifi()
 
 
-POST_URL = "http://10.245.167.78:5000/api/measurements"  
+POST_URL = "http://ipv4 adress:5000/api/measurements"  
 
 
 servo = PWM(Pin(12), freq=50, duty=77)  
@@ -116,5 +116,6 @@ def main_loop(timer):
     
 
     send_data()
+
 
 Timer(0).init(period=30000, mode=Timer.PERIODIC, callback=main_loop)
