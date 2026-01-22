@@ -7,8 +7,8 @@ from bme680 import BME680_I2C
 import espnow
 
 
-SSID = "Pakiphone"
-PASSWORD = "11223344"
+SSID = "SSID"
+PASSWORD = "PASSWORD"
 
 wlan = network.WLAN(network.STA_IF)
 wlan.active(True)
@@ -146,3 +146,4 @@ def main_loop(timer):
     send_data()
 
 Timer(0).init(period=30000, mode=Timer.PERIODIC, callback=main_loop)
+
